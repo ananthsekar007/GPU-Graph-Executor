@@ -1,0 +1,7 @@
+# Runtime dependencies compatible with the cluster's Python 3.6 environment.
+# NumPy 1.19.5 also retains np.float, which tests/mnist_dlsys.py uses.
+numpy==1.19.5
+six==1.16.0
+
+# Last stable pytest line supporting Python 3.6.
+pytest==6.2.5
