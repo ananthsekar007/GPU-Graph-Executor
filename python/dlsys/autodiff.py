@@ -118,7 +118,9 @@ class Op(object):
         -------
         A tuple representing the shape of output node.
         """
-        raise NotImplementedError
+        
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class AddOp(Op):
@@ -152,7 +154,8 @@ class AddOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """Need to handle input_vals[0].shape != input_vals[1].shape"""
-        """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        return broadcast_rule(input_shapes[0], input_shapes[1])
 
 
 class AddByConstOp(Op):
@@ -175,7 +178,8 @@ class AddByConstOp(Op):
         return [output_grad]
 
     def infer_shape(self, node, input_shapes):
-        """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class MulOp(Op):
@@ -208,7 +212,8 @@ class MulOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """Need to handle input_vals[0].shape != input_vals[1].shape"""
-        """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        return broadcast_rule(input_shapes[0], input_shapes[1])
 
 
 class MulByConstOp(Op):
@@ -231,7 +236,8 @@ class MulByConstOp(Op):
         return [node.const_attr * output_grad]
 
     def infer_shape(self, node, input_shapes):
-        """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class MatMulOp(Op):
@@ -299,7 +305,22 @@ class MatMulOp(Op):
         return [lhs_grad, rhs_grad]
 
     def infer_shape(self, node, input_shapes):
-        """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        
+        shape_a = input_shapes[0]
+        shape_b = input_shapes[1]
+        assert shape_a[1] == shape_b[0] and len(shape_a) == 2 and len(shape_b) == 2
+        
+        a_rows, a_cols = shape_a
+        b_rows, b_cols = shape_b
+        
+        if node.matmul_attr_trans_A:
+            a_rows, a_cols = a_cols, a_rows
+        if node.matmul_attr_trans_B:
+            b_rows, b_cols = b_cols, b_rows
+            
+        assert a_cols == b_rows
+        return (a_rows, b_cols)
 
 
 class PlaceholderOp(Op):
@@ -338,7 +359,8 @@ class ZerosLikeOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """If input_shape is a vector, simpler to return (1,)"""
-        """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class OnesLikeOp(Op):
@@ -361,7 +383,8 @@ class OnesLikeOp(Op):
 
     def infer_shape(self, node, input_shapes):
         """If input_shape is a vector, simpler to return (1,)"""
-        """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class ReduceSumAxisZeroOp(Op):
@@ -390,7 +413,15 @@ class ReduceSumAxisZeroOp(Op):
         e.g. (3,4,5)->(4,5)
         for vector, simpler to do (3,)->(1,)
         """
-        """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        
+        input_shape = input_shapes[0]
+        assert len(input_shapes) >= 1
+        
+        if len(input_shape) == 1:
+            return (1,)
+        else:
+            return input_shape[1:]
 
 
 class BroadcastToOp(Op):
@@ -416,7 +447,10 @@ class BroadcastToOp(Op):
         return [grad_A, grad_B]
 
     def infer_shape(self, node, input_shapes):
-        """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        
+        assert broadcast_rule(input_shapes[0], input_shapes[1]) == input_shapes[1]
+        return input_shapes[1]
 
 
 def softmax_func(y):
@@ -452,7 +486,10 @@ class SoftmaxCrossEntropyOp(Op):
         return [grad_A, grad_B]
 
     def infer_shape(self, node, input_shapes):
-        """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        assert len(input_shapes[0]) == 2
+        assert input_shapes[0] == input_shapes[1]
+        return (1, )
 
 
 class SoftmaxOp(Op):
@@ -475,7 +512,9 @@ class SoftmaxOp(Op):
         raise NotImplementedError
 
     def infer_shape(self, node, input_shapes):
-        """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        assert len(input_shapes[0]) == 2
+        return input_shapes[0]
 
 
 class ReluOp(Op):
@@ -496,7 +535,8 @@ class ReluOp(Op):
         return [relu_gradient_op(node.inputs[0], output_grad)]
 
     def infer_shape(self, node, input_shapes):
-        """TODO: Your code here"""
+        assert len(input_shapes) == 1
+        return input_shapes[0]
 
 
 class ReluGradientOp(Op):
@@ -519,7 +559,9 @@ class ReluGradientOp(Op):
         raise NotImplementedError
 
     def infer_shape(self, node, input_shapes):
-        """TODO: Your code here"""
+        assert len(input_shapes) == 2
+        assert input_shapes[0] == input_shapes[1]
+        return input_shapes[0]
 
 
 # Create global singletons of operators.
@@ -570,7 +612,20 @@ class Executor(object):
         ----------
         feed_shapes: node->shapes mapping for feed_dict nodes.
         """
-        """TODO: Your code here"""
+        
+        node_to_shape_map = {}
+        
+        for node in self.topo_order:
+            if node in feed_shapes:
+                node_to_shape_map[node] = feed_shapes[node]
+                continue
+            
+            input_shapes = [node_to_shape_map[n] for n in node.inputs]
+            
+            node_to_shape_map[node] = node.op.infer_shape(node, input_shapes)
+            
+        self.node_to_shape_map = node_to_shape_map
+        
 
     def memory_plan(self, feed_shapes):
         """Allocates ndarray.NDArray for every node except feed_dict nodes.
@@ -589,7 +644,14 @@ class Executor(object):
         ----------
         feed_shapes: node->shapes mapping for feed_dict nodes.
         """
-        """TODO: Your code here"""
+        
+        node_to_arr_map = {}
+        
+        for node in self.topo_order:
+            if node in feed_shapes:
+                node_to_arr_map[node] = ndarray.empty(feed_shapes[node], ctx=self.ctx)
+
+        self.node_to_arr_map = node_to_arr_map
 
     def run(self, feed_dict, convert_to_numpy_ret_vals=False):
         """
