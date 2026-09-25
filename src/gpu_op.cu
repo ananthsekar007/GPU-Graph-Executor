@@ -75,6 +75,16 @@ __global__ void broadcast_to_kernel(const float *in, float *out, size_t in_size,
   }
 }
 
+__global__ void reduce_sum_axis_zero_kernel(const float *in, float *out, size_t axis_zero_size, size_t out_size) {
+  size_t out_index = blockIdx.x * blockDim.x + threadIdx.x;
+  if(out_index < out_size) {
+    out[out_index] = 0.0f;
+    for(size_t i = 0; i < axis_zero_size; ++i) {
+      out[out_index] += in[i * out_size + out_index];
+    }
+  }
+}
+
 // y = inputs[0], y_ = inputs[1]
 // np.mean(-np.sum(y_ * np.log(softmax(y)), axis=1), keepdims=True)
 __global__ void matrix_softmax_cross_entropy_kernel(int nrow, int ncol,
@@ -156,7 +166,23 @@ int DLGpuBroadcastTo(const DLArrayHandle input, DLArrayHandle output) {
 }
 
 int DLGpuReduceSumAxisZero(const DLArrayHandle input, DLArrayHandle output) {
-  /* TODO: Your code here */
+  assert(input != nullptr && output != nullptr);
+
+  const size_t input_size = GetArrSize(input);
+  const size_t output_size = GetArrSize(output);
+  assert(input_size % output_size == 0);
+
+  if(output_size == 0) {
+    return 0;
+  }
+
+  const float *input_data = static_cast<const float *>(input->data);
+  float *output_data = static_cast<float *>(output->data);
+
+  const size_t axis_zero_size = input_size / output_size;
+  const size_t numBlocks = (output_size + threadsPerBlock - 1) / threadsPerBlock;
+
+  reduce_sum_axis_zero_kernel<<<numBlocks, threadsPerBlock>>>(input_data, output_data, axis_zero_size, output_size);
   return 0;
 }
 
