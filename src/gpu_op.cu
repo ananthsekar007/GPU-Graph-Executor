@@ -307,10 +307,64 @@ int DLGpuMatrixMultiplyByConst(const DLArrayHandle input, float val,
 int DLGpuMatrixMultiply(const DLArrayHandle matA, bool transposeA,
                         const DLArrayHandle matB, bool transposeB,
                         DLArrayHandle matC) {
-  /* TODO: Your code here */
-  // Hint: use cublas
-  // cublas assume matrix is column major
+  
+  assert(matA != nullptr && matB != nullptr && matC != nullptr);
+
+  assert(matA->ndim == 2 && matB->ndim == 2 && matC->ndim == 2);
+  
+  const int a_rows = static_cast<int>(matA->shape[0]);
+  const int a_cols = static_cast<int>(matA->shape[1]);
+  const int b_rows = static_cast<int>(matB->shape[0]);
+  const int b_cols = static_cast<int>(matB->shape[1]);
+
+  const int m = transposeA ? a_cols : a_rows;
+  const int k_from_a = transposeA ? a_rows : a_cols;
+  const int k_from_b = transposeB ? b_cols : b_rows;
+  const int n = transposeB ? b_rows : b_cols;
+
+  assert(k_from_a == k_from_b);
+  assert(matC->shape[0] == m);
+  assert(matC->shape[1] == n);
+
+  const float *data_a = static_cast<const float *>(matA->data);
+  const float *data_b = static_cast<const float *>(matB->data);
+  float *data_c = static_cast<float *>(matC->data);
+
+  const float alpha = 1.0f;
+  const float beta = 0.0f;
+
+  cublasHandle_t handle;
+  cublasStatus_t status = cublasCreate(&handle);
+  assert(status == CUBLAS_STATUS_SUCCESS);
+
+  const cublasOperation_t operation_b =
+      transposeB ? CUBLAS_OP_T : CUBLAS_OP_N;
+  const cublasOperation_t operation_a =
+      transposeA ? CUBLAS_OP_T : CUBLAS_OP_N;
+
+  status = cublasSgemm(
+      handle,
+      operation_b,
+      operation_a,
+      n,
+      m,
+      k_from_a,
+      &alpha,
+      data_b,
+      b_cols,
+      data_a,
+      a_cols,
+      &beta,
+      data_c,
+      n);
+
+  assert(status == CUBLAS_STATUS_SUCCESS);
+
+  status = cublasDestroy(handle);
+  assert(status == CUBLAS_STATUS_SUCCESS);
+
   return 0;
+
 }
 
 int DLGpuRelu(const DLArrayHandle input, DLArrayHandle output) {
