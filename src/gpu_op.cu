@@ -59,6 +59,14 @@ __global__ void relu_kernel(const float *in, float *out, size_t size) {
   }
 }
 
+__global__ void relu_gradient_kernel(const float *in, const float *in_grad, float *out, size_t size) {
+  size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(index < size) {
+    out[index] = in[index] > 0.0f ? in_grad[index] : 0.0f;
+  }
+}
+
 // y = inputs[0], y_ = inputs[1]
 // np.mean(-np.sum(y_ * np.log(softmax(y)), axis=1), keepdims=True)
 __global__ void matrix_softmax_cross_entropy_kernel(int nrow, int ncol,
@@ -254,7 +262,26 @@ int DLGpuRelu(const DLArrayHandle input, DLArrayHandle output) {
 
 int DLGpuReluGradient(const DLArrayHandle input, const DLArrayHandle in_grad,
                       DLArrayHandle output) {
-  /* TODO: Your code here */
+                        
+  assert(input != nullptr && in_grad != nullptr && output != nullptr);
+
+  const size_t input_size = GetArrSize(input);
+  const size_t in_grad_size = GetArrSize(in_grad);
+  const size_t output_size = GetArrSize(output);
+  assert(input_size == in_grad_size && input_size == output_size);
+
+  if(output_size == 0) {
+    return 0;
+  }
+
+  const float *input_data = static_cast<const float *>(input->data);
+  const float *in_grad_data = static_cast<const float *>(in_grad->data);
+  float *output_data = static_cast<float *>(output->data);
+
+  const size_t numBlocks = (output_size + threadsPerBlock - 1) / threadsPerBlock;
+
+  relu_gradient_kernel<<<numBlocks, threadsPerBlock>>>(input_data, in_grad_data, output_data, output_size);
+
   return 0;
 }
 
