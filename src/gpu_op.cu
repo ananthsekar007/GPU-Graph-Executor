@@ -118,8 +118,8 @@ int DLGpuMatrixElementwiseAddByConst(const DLArrayHandle input, float val,
     return 0;
   }
 
-  const float *input_data = input->data;
-  float *output_data = output->data;
+  const float *input_data = static_cast<const float *>(input->data);
+  float *output_data = static_cast<float *>(output->data);
 
   const size_t numBlocks = (output_size + threadsPerBlock - 1) / threadsPerBlock;
 
