@@ -23,7 +23,7 @@ __global__ void array_set_kernel(float *out, float value, size_t size) {
   }
 }
 
-__global__ void matrix_elementwise_add_by_const_kernel(float *in, float *out, float value, size_t size) {
+__global__ void matrix_elementwise_add_by_const_kernel(const float *in, float *out, float value, size_t size) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   if(index < size) {
     out[index] = in[index] + value;
