@@ -651,7 +651,9 @@ class Executor(object):
         
         for node in self.topo_order:
             if node in feed_shapes:
-                node_to_arr_map[node] = ndarray.empty(feed_shapes[node], ctx=self.ctx)
+                continue
+            
+            node_to_arr_map[node] = ndarray.empty(self.node_to_shape_map[node], ctx=self.ctx)
 
         self.node_to_arr_map = node_to_arr_map
 
