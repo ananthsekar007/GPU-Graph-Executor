@@ -44,7 +44,7 @@ __global__ void matrix_elementwise_add_kernel(const float *in1, const float *in2
   }
 }
 
-__global__ void matrix_multiply_add_kernel(const float *in1, const float *in2, float *out, size_t size) {
+__global__ void matrix_elementwise_multiply_kernel(const float *in1, const float *in2, float *out, size_t size) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
   if(index < size) {
     out[index] = in1[index] * in2[index];
