@@ -23,6 +23,12 @@ __global__ void array_set_kernel(float *out, float value, size_t size) {
   }
 }
 
+__global__ void matrix_elementwise_add_by_const_kernel(float *in, float *out, float value, size_t size) {
+  size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+  if(index < size) {
+    out[index] = in[index] + value;
+  }
+}
 
 // y = inputs[0], y_ = inputs[1]
 // np.mean(-np.sum(y_ * np.log(softmax(y)), axis=1), keepdims=True)
@@ -102,7 +108,23 @@ int DLGpuMatrixElementwiseAdd(const DLArrayHandle matA,
 
 int DLGpuMatrixElementwiseAddByConst(const DLArrayHandle input, float val,
                                      DLArrayHandle output) {
-  /* TODO: Your code here */
+  assert(input != nullptr && output != nullptr);
+
+  const size_t input_size = GetArrSize(input);
+  const size_t output_size = GetArrSize(output);
+  assert(input_size == output_size);
+
+  if(output_size == 0) {
+    return 0;
+  }
+
+  const float *input_data = input->data;
+  float *output_data = output->data;
+
+  const size_t numBlocks = (output_size + threadsPerBlock - 1) / threadsPerBlock;
+
+  matrix_elementwise_add_by_const_kernel<<<numBlocks, threadsPerBlock>>>(input_data, output_data, val, output_size);
+
   return 0;
 }
 
