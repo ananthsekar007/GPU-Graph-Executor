@@ -67,6 +67,14 @@ __global__ void relu_gradient_kernel(const float *in, const float *in_grad, floa
   }
 }
 
+__global__ void broadcast_to_kernel(const float *in, float *out, size_t in_size, size_t out_size) {
+  size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(index < out_size) {
+    out[index] = in[index % in_size];
+  }
+}
+
 // y = inputs[0], y_ = inputs[1]
 // np.mean(-np.sum(y_ * np.log(softmax(y)), axis=1), keepdims=True)
 __global__ void matrix_softmax_cross_entropy_kernel(int nrow, int ncol,
@@ -128,7 +136,22 @@ int DLGpuArraySet(DLArrayHandle arr, float value) {
 }
 
 int DLGpuBroadcastTo(const DLArrayHandle input, DLArrayHandle output) {
-  /* TODO: Your code here */
+  assert(input != nullptr && output != nullptr);
+
+  const size_t input_size = GetArrSize(input);
+  const size_t output_size = GetArrSize(output);
+  assert(input_size <= output_size);
+
+  if(output_size == 0) {
+    return 0;
+  }
+
+  const float *input_data = static_cast<const float *>(input->data);
+  float *output_data = static_cast<float *>(output->data);
+
+  const size_t numBlocks = (output_size + threadsPerBlock - 1) / threadsPerBlock;
+
+  broadcast_to_kernel<<<numBlocks, threadsPerBlock>>>(input_data, output_data, input_size, output_size);
   return 0;
 }
 
@@ -262,7 +285,7 @@ int DLGpuRelu(const DLArrayHandle input, DLArrayHandle output) {
 
 int DLGpuReluGradient(const DLArrayHandle input, const DLArrayHandle in_grad,
                       DLArrayHandle output) {
-                        
+
   assert(input != nullptr && in_grad != nullptr && output != nullptr);
 
   const size_t input_size = GetArrSize(input);
