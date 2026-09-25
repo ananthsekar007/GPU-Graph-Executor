@@ -85,6 +85,31 @@ __global__ void reduce_sum_axis_zero_kernel(const float *in, float *out, size_t 
   }
 }
 
+__global__ void softmax_kernel(const float *in, float *out, int nrow, int ncol) {
+  int row = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if(row < nrow) {
+    const int offset = row * ncol;
+
+    float max_val = in[offset];
+
+    for(int x = 1; x < ncol; ++x) {
+      max_val = fmaxf(max_val, in[offset + x]);
+    }
+
+    float sum = 0.0f;
+
+    for(int x = 0; x < ncol; ++x) {
+      sum += exp(in[offset + x] - max_val);
+    }
+
+    for(int x = 0; x < ncol; ++x) {
+      out[offset + x] = exp(in[offset + x] - max_val) / sum;
+    }
+  }
+
+}
+
 // y = inputs[0], y_ = inputs[1]
 // np.mean(-np.sum(y_ * np.log(softmax(y)), axis=1), keepdims=True)
 __global__ void matrix_softmax_cross_entropy_kernel(int nrow, int ncol,
@@ -335,7 +360,23 @@ int DLGpuReluGradient(const DLArrayHandle input, const DLArrayHandle in_grad,
 }
 
 int DLGpuSoftmax(const DLArrayHandle input, DLArrayHandle output) {
-  /* TODO: Your code here */
+  assert(input != nullptr && output != nullptr);
+
+  const size_t input_size = GetArrSize(input);
+  const size_t output_size = GetArrSize(output);
+  assert(input_size == output_size);
+
+  if(output_size == 0) {
+    return 0;
+  }
+
+  const float *input_data = static_cast<const float *>(input->data);
+  float *output_data = static_cast<float *>(output->data);
+
+  const size_t numBlocks = (output_size + threadsPerBlock - 1) / threadsPerBlock;
+
+  softmax_kernel<<<numBlocks, threadsPerBlock>>>(input_data, output_data, input->shape[0], input->shape[1]);
+
   return 0;
 }
 
