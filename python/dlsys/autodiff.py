@@ -309,7 +309,8 @@ class MatMulOp(Op):
         
         shape_a = input_shapes[0]
         shape_b = input_shapes[1]
-        assert shape_a[1] == shape_b[0] and len(shape_a) == 2 and len(shape_b) == 2
+        assert len(shape_a) == 2 
+        assert len(shape_b) == 2
         
         a_rows, a_cols = shape_a
         b_rows, b_cols = shape_b
@@ -320,6 +321,7 @@ class MatMulOp(Op):
             b_rows, b_cols = b_cols, b_rows
             
         assert a_cols == b_rows
+        
         return (a_rows, b_cols)
 
 
