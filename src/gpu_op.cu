@@ -30,6 +30,13 @@ __global__ void matrix_elementwise_add_by_const_kernel(const float *in, float *o
   }
 }
 
+__global__ void matrix_multiply_by_const_kernel(const float *in, float *out, float value, size_t size) {
+  size_t index = blockIdx.x * blockDim.x + threadIdx.x;
+  if(index < size) {
+    out[index] = in[index] * value;
+  }
+}
+
 // y = inputs[0], y_ = inputs[1]
 // np.mean(-np.sum(y_ * np.log(softmax(y)), axis=1), keepdims=True)
 __global__ void matrix_softmax_cross_entropy_kernel(int nrow, int ncol,
@@ -137,7 +144,23 @@ int DLGpuMatrixElementwiseMultiply(const DLArrayHandle matA,
 
 int DLGpuMatrixMultiplyByConst(const DLArrayHandle input, float val,
                                DLArrayHandle output) {
-  /* TODO: Your code here */
+  assert(input != nullptr && output != nullptr);
+
+  const size_t input_size = GetArrSize(input);
+  const size_t output_size = GetArrSize(output);
+  assert(input_size == output_size);
+
+  if(output_size == 0) {
+    return 0;
+  }
+
+  const float *input_data = static_cast<const float *>(input->data);
+  float *output_data = static_cast<float *>(output->data);
+
+  const size_t numBlocks = (output_size + threadsPerBlock - 1) / threadsPerBlock;
+
+  matrix_multiply_by_const_kernel<<<numBlocks, threadsPerBlock>>>(input_data, output_data, val, output_size);
+
   return 0;
 }
 
