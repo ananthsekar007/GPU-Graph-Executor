@@ -54,7 +54,7 @@ __global__ void matrix_elementwise_multiply_kernel(const float *in1, const float
 __global__ void relu_kernel(const float *in, float *out, size_t size) {
   size_t index = blockIdx.x * blockDim.x + threadIdx.x;
 
-  if(index size) {
+  if(index < size) {
     out[index] = fmaxf(0.0f, in[index]);
   }
 }
